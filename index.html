@@ -1,0 +1,511 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="theme-color" content="#0b0f14" />
+  <link rel="manifest" href="./manifest.json" />
+  <title>Drink Tap</title>
+  <style>
+    :root {
+      --bg: #0b0f14;
+      --card: #121924;
+      --muted: #93a4b8;
+      --text: #e7eef7;
+      --ok: #4ade80;
+      --warn: #fbbf24;
+      --bad: #fb7185;
+      --btn: #1f2a3a;
+      --btn2: #243449;
+      --ring: rgba(255,255,255,.08);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; font-family: -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial;
+      background: var(--bg); color: var(--text);
+      padding: 18px 16px 40px;
+    }
+    header { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+    h1 { margin: 0; font-size: 18px; letter-spacing: .2px; }
+    .pill {
+      font-size: 12px; color: var(--muted);
+      padding: 6px 10px; border-radius: 999px; background: rgba(255,255,255,.05);
+      border: 1px solid var(--ring);
+    }
+    .grid { margin-top: 14px; display:grid; gap: 12px; }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--ring);
+      border-radius: 14px;
+      padding: 14px;
+    }
+    .row { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+    .kpi { display:flex; flex-direction:column; gap:6px; }
+    .kpi .label { font-size: 12px; color: var(--muted); }
+    .kpi .value { font-size: 28px; font-weight: 700; letter-spacing:.2px; }
+    .sub { font-size: 12px; color: var(--muted); margin-top: 6px; }
+    .bar {
+      margin-top: 10px;
+      height: 10px; border-radius: 999px;
+      background: rgba(255,255,255,.06);
+      overflow: hidden;
+      border: 1px solid var(--ring);
+    }
+    .bar > div { height: 100%; width: 0%; background: var(--ok); transition: width .15s ease; }
+    .btns { display:grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
+    button {
+      appearance: none; border: 1px solid var(--ring);
+      background: var(--btn); color: var(--text);
+      padding: 14px 12px; border-radius: 12px;
+      font-weight: 700; font-size: 16px;
+    }
+    button.secondary { background: var(--btn2); font-weight: 600; }
+    button:active { transform: scale(.99); }
+    .warn { color: var(--warn); font-weight: 700; }
+    .bad { color: var(--bad); font-weight: 700; }
+    .ok { color: var(--ok); font-weight: 700; }
+    .small { font-size: 12px; color: var(--muted); }
+    .toggle {
+      display:flex; align-items:center; justify-content:space-between; gap:12px;
+      margin-top: 10px;
+      padding: 10px 12px;
+      border-radius: 12px;
+      border: 1px solid var(--ring);
+      background: rgba(255,255,255,.03);
+    }
+    .toggle label { font-size: 13px; color: var(--text); }
+    .toggle input { width: 44px; height: 24px; }
+    .history { margin-top: 10px; max-height: 220px; overflow:auto; }
+    .hist-item {
+      padding: 10px 0;
+      border-top: 1px solid rgba(255,255,255,.06);
+      display:flex; justify-content:space-between; gap:10px;
+      font-size: 13px;
+    }
+    .hist-item:first-child { border-top: none; }
+    .tools { display:flex; gap:10px; flex-wrap:wrap; margin-top: 10px; }
+    .tools button { font-size: 13px; padding: 10px 10px; border-radius: 10px; }
+    .input-row { display:flex; gap:10px; margin-top: 10px; }
+    input[type="number"]{
+      width: 100%;
+      padding: 12px;
+      border-radius: 12px;
+      border: 1px solid var(--ring);
+      background: rgba(255,255,255,.03);
+      color: var(--text);
+      font-size: 14px;
+    }
+    .muted { color: var(--muted); }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Drink Tap</h1>
+    <div id="weekPill" class="pill"></div>
+  </header>
+
+  <div class="grid">
+    <div class="card">
+      <div class="row">
+        <div class="kpi">
+          <div class="label">Today</div>
+          <div id="todayCount" class="value">0</div>
+        </div>
+        <div class="kpi" style="text-align:right;">
+          <div class="label">This week</div>
+          <div id="weekCount" class="value">0</div>
+        </div>
+      </div>
+
+      <div class="sub">
+        Weekly cap: <span id="weekCapTxt" class="ok">5</span>
+        · Remaining: <span id="remainingTxt" class="ok">5</span>
+      </div>
+
+      <div class="bar" aria-label="Weekly progress bar">
+        <div id="barFill"></div>
+      </div>
+
+      <div id="alerts" class="sub"></div>
+
+      <div class="btns">
+        <button id="addBtn">+1 Drink</button>
+        <button id="undoBtn" class="secondary">Undo</button>
+      </div>
+
+      <div class="toggle">
+        <label for="specialToggle">This is a special week (cap = <span id="specialCapTxt">10</span>)</label>
+        <input id="specialToggle" type="checkbox" />
+      </div>
+
+      <div class="sub">
+        Sober days this week: <span id="soberDaysTxt" class="ok">0</span> / <span id="soberGoalTxt">4</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="row">
+        <div class="kpi">
+          <div class="label">Rolling 4-week average</div>
+          <div id="rollingAvg" class="value">0.0</div>
+        </div>
+        <div class="kpi" style="text-align:right;">
+          <div class="label">Target average</div>
+          <div id="avgTarget" class="value">5.0</div>
+        </div>
+      </div>
+      <div class="sub muted">
+        This is the metric that keeps you honest when you have a travel week.
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="row">
+        <div class="kpi">
+          <div class="label">Settings</div>
+          <div class="small">Keep it simple. Change only if needed.</div>
+        </div>
+      </div>
+
+      <div class="input-row">
+        <input id="defaultWeeklyCap" type="number" min="0" step="1" placeholder="Default weekly cap (e.g., 5)" />
+        <input id="specialWeeklyCap" type="number" min="0" step="1" placeholder="Special week cap (e.g., 10)" />
+      </div>
+      <div class="input-row">
+        <input id="dailyCap" type="number" min="0" step="1" placeholder="Max per day (e.g., 3)" />
+        <input id="soberDaysGoal" type="number" min="0" step="1" placeholder="Sober days/week (e.g., 4)" />
+      </div>
+      <div class="input-row">
+        <input id="avgGoal" type="number" min="0" step="0.1" placeholder="Weekly average goal (e.g., 5.0)" />
+      </div>
+
+      <div class="tools">
+        <button id="saveSettings" class="secondary">Save settings</button>
+        <button id="exportBtn" class="secondary">Export data</button>
+        <button id="importBtn" class="secondary">Import data</button>
+        <button id="resetBtn" class="secondary">Reset (danger)</button>
+      </div>
+
+      <input id="fileInput" type="file" accept="application/json" style="display:none;" />
+    </div>
+
+    <div class="card">
+      <div class="row">
+        <div class="kpi">
+          <div class="label">History (this week)</div>
+          <div class="small">Taps are timestamped. Undo removes the latest entry.</div>
+        </div>
+      </div>
+      <div id="history" class="history"></div>
+    </div>
+  </div>
+
+<script>
+(function(){
+  const LS_KEY = "drink_tap_v1";
+  const DEFAULTS = {
+    defaultWeeklyCap: 5,
+    specialWeeklyCap: 10,
+    dailyCap: 3,
+    soberDaysGoal: 4,
+    avgGoal: 5.0,
+    specialWeeks: {}, // { weekKey: true }
+    entries: [] // array of ISO timestamps
+  };
+
+  function load(){
+    try {
+      const raw = localStorage.getItem(LS_KEY);
+      if (!raw) return structuredClone(DEFAULTS);
+      const parsed = JSON.parse(raw);
+      return { ...structuredClone(DEFAULTS), ...parsed };
+    } catch {
+      return structuredClone(DEFAULTS);
+    }
+  }
+  function save(state){
+    localStorage.setItem(LS_KEY, JSON.stringify(state));
+  }
+
+  function pad(n){ return String(n).padStart(2, "0"); }
+  function toLocalDateKey(d){
+    return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+  }
+
+  // Monday-based week start
+  function startOfWeek(d){
+    const date = new Date(d);
+    const day = date.getDay(); // 0 Sun..6 Sat
+    const diff = (day === 0 ? -6 : 1 - day); // Monday
+    date.setDate(date.getDate() + diff);
+    date.setHours(0,0,0,0);
+    return date;
+  }
+  function weekKey(d){
+    const s = startOfWeek(d);
+    return toLocalDateKey(s);
+  }
+  function weekRangeLabel(d){
+    const s = startOfWeek(d);
+    const e = new Date(s);
+    e.setDate(e.getDate() + 6);
+    return `${s.getFullYear()}-${pad(s.getMonth()+1)}-${pad(s.getDate())} to ${e.getFullYear()}-${pad(e.getMonth()+1)}-${pad(e.getDate())}`;
+  }
+
+  function entriesInWeek(state, wk){
+    return state.entries
+      .map(ts => new Date(ts))
+      .filter(dt => weekKey(dt) === wk)
+      .sort((a,b)=>a-b);
+  }
+  function countByDate(entries){
+    const map = new Map();
+    for (const dt of entries){
+      const k = toLocalDateKey(dt);
+      map.set(k, (map.get(k)||0)+1);
+    }
+    return map;
+  }
+
+  function getWeekCap(state, wk){
+    return state.specialWeeks && state.specialWeeks[wk] ? Number(state.specialWeeklyCap) : Number(state.defaultWeeklyCap);
+  }
+
+  function computeSoberDaysThisWeek(state, wk){
+    const weekEntries = entriesInWeek(state, wk);
+    const byDate = countByDate(weekEntries);
+    const start = new Date(wk + "T00:00:00");
+    let sober = 0;
+    for (let i=0;i<7;i++){
+      const d = new Date(start);
+      d.setDate(d.getDate()+i);
+      const k = toLocalDateKey(d);
+      if (!byDate.get(k)) sober += 1;
+    }
+    return sober;
+  }
+
+  function rolling4WeekAverage(state, now){
+    // last 4 week keys including current
+    const keys = [];
+    let cur = startOfWeek(now);
+    for (let i=0;i<4;i++){
+      keys.push(weekKey(cur));
+      cur = new Date(cur);
+      cur.setDate(cur.getDate()-7);
+    }
+    let total = 0;
+    for (const k of keys){
+      total += entriesInWeek(state, k).length;
+    }
+    return total / 4;
+  }
+
+  // UI refs
+  const el = (id)=>document.getElementById(id);
+  const todayCountEl = el("todayCount");
+  const weekCountEl  = el("weekCount");
+  const weekCapTxt   = el("weekCapTxt");
+  const remainingTxt = el("remainingTxt");
+  const barFill      = el("barFill");
+  const alerts       = el("alerts");
+  const weekPill     = el("weekPill");
+  const specialToggle= el("specialToggle");
+  const soberDaysTxt = el("soberDaysTxt");
+  const soberGoalTxt = el("soberGoalTxt");
+  const rollingAvgEl = el("rollingAvg");
+  const avgTargetEl  = el("avgTarget");
+  const historyEl    = el("history");
+
+  const defaultWeeklyCapInput = el("defaultWeeklyCap");
+  const specialWeeklyCapInput = el("specialWeeklyCap");
+  const dailyCapInput = el("dailyCap");
+  const soberDaysGoalInput = el("soberDaysGoal");
+  const avgGoalInput = el("avgGoal");
+  const specialCapTxt = el("specialCapTxt");
+
+  let state = load();
+
+  function render(){
+    const now = new Date();
+    const wk = weekKey(now);
+    weekPill.textContent = `Week: ${weekRangeLabel(now)}`;
+
+    // hydrate settings inputs
+    defaultWeeklyCapInput.value = state.defaultWeeklyCap;
+    specialWeeklyCapInput.value = state.specialWeeklyCap;
+    dailyCapInput.value = state.dailyCap;
+    soberDaysGoalInput.value = state.soberDaysGoal;
+    avgGoalInput.value = state.avgGoal;
+    avgTargetEl.textContent = Number(state.avgGoal).toFixed(1);
+    specialCapTxt.textContent = String(state.specialWeeklyCap);
+
+    const weekEntries = entriesInWeek(state, wk);
+    const byDate = countByDate(weekEntries);
+
+    const todayKey = toLocalDateKey(now);
+    const todayCount = byDate.get(todayKey) || 0;
+    const weekCount = weekEntries.length;
+
+    const cap = getWeekCap(state, wk);
+    const remaining = Math.max(0, cap - weekCount);
+
+    todayCountEl.textContent = String(todayCount);
+    weekCountEl.textContent = String(weekCount);
+    weekCapTxt.textContent = String(cap);
+    remainingTxt.textContent = String(remaining);
+
+    // progress bar
+    const pct = cap === 0 ? 0 : Math.min(100, (weekCount / cap) * 100);
+    barFill.style.width = pct + "%";
+    barFill.style.background = weekCount <= cap ? "var(--ok)" : "var(--bad)";
+
+    // special toggle state for this week
+    specialToggle.checked = !!(state.specialWeeks && state.specialWeeks[wk]);
+
+    // alerts
+    const soberDays = computeSoberDaysThisWeek(state, wk);
+    soberDaysTxt.textContent = String(soberDays);
+    soberGoalTxt.textContent = String(state.soberDaysGoal);
+
+    const msgs = [];
+    // daily cap warning
+    if (todayCount > Number(state.dailyCap)) {
+      msgs.push(`<span class="bad">Daily cap exceeded</span> (>${state.dailyCap}).`);
+    } else if (todayCount === Number(state.dailyCap) && state.dailyCap > 0) {
+      msgs.push(`<span class="warn">At daily cap</span> (${state.dailyCap}).`);
+    }
+
+    // weekly cap warning
+    if (weekCount > cap) {
+      msgs.push(`<span class="bad">Weekly cap exceeded</span> (${cap}).`);
+    } else if (cap > 0 && weekCount === cap) {
+      msgs.push(`<span class="warn">At weekly cap</span> (${cap}).`);
+    }
+
+    // sober days
+    const soberGoal = Number(state.soberDaysGoal);
+    const daysSoFar = (() => {
+      // number of days elapsed in current week (1..7)
+      const start = startOfWeek(now);
+      const diff = Math.floor((now - start) / (24*3600*1000));
+      return Math.min(7, Math.max(1, diff + 1));
+    })();
+    // A gentle projection: if you want 4 sober days, you can still get them
+    const remainingDays = 7 - daysSoFar;
+    const maxPossibleSober = soberDays + remainingDays;
+    if (soberGoal > 0 && maxPossibleSober < soberGoal) {
+      msgs.push(`<span class="warn">Sober days goal likely missed</span> (need ${soberGoal}).`);
+    }
+
+    alerts.innerHTML = msgs.length ? msgs.join(" ") : `<span class="ok">On track.</span>`;
+
+    // rolling average
+    const avg4 = rolling4WeekAverage(state, now);
+    rollingAvgEl.textContent = avg4.toFixed(1);
+    rollingAvgEl.style.color = avg4 <= Number(state.avgGoal) ? "var(--ok)" : "var(--warn)";
+
+    // history list (this week)
+    historyEl.innerHTML = "";
+    const reversed = [...weekEntries].reverse();
+    if (reversed.length === 0){
+      historyEl.innerHTML = `<div class="small muted">No drinks logged this week.</div>`;
+    } else {
+      for (const dt of reversed){
+        const item = document.createElement("div");
+        item.className = "hist-item";
+        const day = dt.toLocaleDateString(undefined, { weekday:"short", month:"short", day:"numeric" });
+        const time = dt.toLocaleTimeString(undefined, { hour:"numeric", minute:"2-digit" });
+        item.innerHTML = `<div>+1</div><div class="muted">${day} · ${time}</div>`;
+        historyEl.appendChild(item);
+      }
+    }
+  }
+
+  function addDrink(){
+    state.entries.push(new Date().toISOString());
+    save(state);
+    render();
+  }
+  function undo(){
+    if (!state.entries.length) return;
+    // remove most recent
+    state.entries.sort((a,b)=> new Date(a)-new Date(b));
+    state.entries.pop();
+    save(state);
+    render();
+  }
+
+  el("addBtn").addEventListener("click", addDrink);
+  el("undoBtn").addEventListener("click", undo);
+
+  specialToggle.addEventListener("change", (e)=>{
+    const wk = weekKey(new Date());
+    state.specialWeeks = state.specialWeeks || {};
+    state.specialWeeks[wk] = !!e.target.checked;
+    save(state);
+    render();
+  });
+
+  el("saveSettings").addEventListener("click", ()=>{
+    const next = {
+      defaultWeeklyCap: Number(defaultWeeklyCapInput.value || 0),
+      specialWeeklyCap: Number(specialWeeklyCapInput.value || 0),
+      dailyCap: Number(dailyCapInput.value || 0),
+      soberDaysGoal: Number(soberDaysGoalInput.value || 0),
+      avgGoal: Number(avgGoalInput.value || 0),
+    };
+    state = { ...state, ...next };
+    save(state);
+    render();
+  });
+
+  // Export / Import
+  el("exportBtn").addEventListener("click", ()=>{
+    const blob = new Blob([JSON.stringify(state, null, 2)], { type: "application/json" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `drink_tap_export_${toLocalDateKey(new Date())}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(a.href);
+  });
+
+  const fileInput = el("fileInput");
+  el("importBtn").addEventListener("click", ()=> fileInput.click());
+  fileInput.addEventListener("change", async (e)=>{
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    const txt = await file.text();
+    try {
+      const parsed = JSON.parse(txt);
+      state = { ...structuredClone(DEFAULTS), ...parsed };
+      save(state);
+      render();
+      alert("Imported successfully.");
+    } catch {
+      alert("Import failed. File was not valid JSON.");
+    } finally {
+      fileInput.value = "";
+    }
+  });
+
+  el("resetBtn").addEventListener("click", ()=>{
+    const ok = confirm("Reset all data? This cannot be undone.");
+    if (!ok) return;
+    state = structuredClone(DEFAULTS);
+    save(state);
+    render();
+  });
+
+  // PWA: service worker
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("./sw.js").catch(()=>{});
+  }
+
+  render();
+})();
+</script>
+</body>
+</html>
