@@ -1,4 +1,4 @@
-const CACHE = "drink-tap-v1";
+const CACHE = "drink-tap-v2";
 const ASSETS = ["./", "./index.html", "./manifest.json"];
 
 self.addEventListener("install", (event) => {
