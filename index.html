@@ -43,7 +43,7 @@
     .kpi { display:flex; flex-direction:column; gap:6px; }
     .kpi .label { font-size: 12px; color: var(--muted); }
     .kpi .value { font-size: 28px; font-weight: 700; letter-spacing:.2px; }
-    .sub { font-size: 12px; color: var(--muted); margin-top: 6px; }
+    .sub { font-size: 12px; color: var(--muted); margin-top: 6px; line-height: 1.35; }
     .bar {
       margin-top: 10px;
       height: 10px; border-radius: 999px;
@@ -86,7 +86,7 @@
     .tools { display:flex; gap:10px; flex-wrap:wrap; margin-top: 10px; }
     .tools button { font-size: 13px; padding: 10px 10px; border-radius: 10px; }
     .input-row { display:flex; gap:10px; margin-top: 10px; }
-    input[type="number"]{
+    input[type="number"], input[type="date"]{
       width: 100%;
       padding: 12px;
       border-radius: 12px;
@@ -96,6 +96,7 @@
       font-size: 14px;
     }
     .muted { color: var(--muted); }
+    .mini-actions { display:grid; gap:10px; margin-top: 10px; }
   </style>
 </head>
 <body>
@@ -132,9 +133,19 @@
         <button id="addBtn">+1 Drink</button>
         <button id="undoBtn" class="secondary">Undo</button>
       </div>
-      <button id="addYesterdayBtn" class="secondary" style="width:100%; margin-top:10px;">
-  +1 Yesterday
-</button>
+
+      <!-- NEW: Backfill buttons -->
+      <div class="mini-actions">
+        <button id="addYesterdayBtn" class="secondary">+1 Yesterday</button>
+
+        <div class="row" style="gap:10px;">
+          <input id="customDate" type="date" />
+          <button id="addCustomBtn" class="secondary" style="white-space:nowrap;">+1 Custom</button>
+        </div>
+        <div class="small muted">
+          Tip: “Yesterday” logs at 7:00pm local time. Custom logs at 7:00pm for the date you pick.
+        </div>
+      </div>
 
       <div class="toggle">
         <label for="specialToggle">This is a special week (cap = <span id="specialCapTxt">10</span>)</label>
@@ -289,7 +300,6 @@
   }
 
   function rolling4WeekAverage(state, now){
-    // last 4 week keys including current
     const keys = [];
     let cur = startOfWeek(now);
     for (let i=0;i<4;i++){
@@ -302,6 +312,12 @@
       total += entriesInWeek(state, k).length;
     }
     return total / 4;
+  }
+
+  function setLocalTime(d, hour, minute){
+    const x = new Date(d);
+    x.setHours(hour, minute, 0, 0);
+    return x;
   }
 
   // UI refs
@@ -326,6 +342,8 @@
   const soberDaysGoalInput = el("soberDaysGoal");
   const avgGoalInput = el("avgGoal");
   const specialCapTxt = el("specialCapTxt");
+
+  const customDateInput = el("customDate");
 
   let state = load();
 
@@ -386,15 +404,13 @@
       msgs.push(`<span class="warn">At weekly cap</span> (${cap}).`);
     }
 
-    // sober days
+    // sober days projection
     const soberGoal = Number(state.soberDaysGoal);
     const daysSoFar = (() => {
-      // number of days elapsed in current week (1..7)
       const start = startOfWeek(now);
       const diff = Math.floor((now - start) / (24*3600*1000));
       return Math.min(7, Math.max(1, diff + 1));
     })();
-    // A gentle projection: if you want 4 sober days, you can still get them
     const remainingDays = 7 - daysSoFar;
     const maxPossibleSober = soberDays + remainingDays;
     if (soberGoal > 0 && maxPossibleSober < soberGoal) {
@@ -423,24 +439,50 @@
         historyEl.appendChild(item);
       }
     }
+
+    // default custom date input to yesterday (convenient)
+    const y = new Date();
+    y.setDate(y.getDate() - 1);
+    const yKey = toLocalDateKey(y);
+    if (!customDateInput.value) customDateInput.value = yKey;
   }
 
-  function addDrink(){
-    state.entries.push(new Date().toISOString());
+  function addDrinkAt(dateObj){
+    state.entries.push(dateObj.toISOString());
     save(state);
     render();
   }
+
+  function addDrink(){
+    addDrinkAt(new Date());
+  }
+
   function undo(){
     if (!state.entries.length) return;
-    // remove most recent
     state.entries.sort((a,b)=> new Date(a)-new Date(b));
     state.entries.pop();
     save(state);
     render();
   }
 
+  // EVENTS
   el("addBtn").addEventListener("click", addDrink);
   el("undoBtn").addEventListener("click", undo);
+
+  // NEW: +1 Yesterday (logs at 7:00pm local time)
+  el("addYesterdayBtn").addEventListener("click", ()=>{
+    const d = new Date();
+    d.setDate(d.getDate() - 1);
+    addDrinkAt(setLocalTime(d, 19, 0));
+  });
+
+  // NEW: +1 Custom date (logs at 7:00pm local time)
+  el("addCustomBtn").addEventListener("click", ()=>{
+    const v = customDateInput.value;
+    if (!v) return;
+    const d = new Date(v + "T00:00:00");
+    addDrinkAt(setLocalTime(d, 19, 0));
+  });
 
   specialToggle.addEventListener("change", (e)=>{
     const wk = weekKey(new Date());
